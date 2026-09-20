@@ -44,6 +44,17 @@ describe('resolveEphemeralServer', () => {
     expect(persistedEntry.lifecycle).toBe('keep-alive');
   });
 
+  it('keeps a Windows Program Files path as the stdio executable', () => {
+    const spaced = String.raw`C:\Program Files\app\server.exe`;
+    const { definition } = resolveEphemeralServer({ stdioCommand: spaced });
+    expect(definition.command.kind).toBe('stdio');
+    if (definition.command.kind !== 'stdio') {
+      throw new Error('expected stdio command');
+    }
+    expect(definition.command.command).toBe(spaced);
+    expect(definition.command.args).toEqual([]);
+  });
+
   it('infers package names instead of wrapper flags for npx workflows', () => {
     const { definition } = resolveEphemeralServer({
       stdioCommand: 'npx -y xcodebuildmcp',

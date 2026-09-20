@@ -1,4 +1,4 @@
-import { splitCommandLine } from '../adhoc-server.js';
+import { looksLikeWindowsFilesystemPath, splitCommandLine } from '../adhoc-server.js';
 import { toAsciiSlug } from '../ascii-slug.js';
 import { normalizeHttpUrlCandidate } from '../http-utils.js';
 import type { CommandInput } from './types.js';
@@ -34,6 +34,9 @@ export function inferNameFromCommand(command: CommandInput): string | undefined 
       }
     }
     const trimmed = command.trim();
+    if (looksLikeWindowsFilesystemPath(trimmed)) {
+      return slugify(stripExtension(basename(trimmed)));
+    }
     if (looksLikeInlineCommand(trimmed)) {
       try {
         const parsed = parseInlineCommand(trimmed);
@@ -73,6 +76,9 @@ export function normalizeCommandInput(value: string): CommandInput {
   if (httpCandidate) {
     return httpCandidate;
   }
+  if (looksLikeWindowsFilesystemPath(value)) {
+    return { command: value };
+  }
   if (looksLikeInlineCommand(value)) {
     return parseInlineCommand(value);
   }
@@ -81,6 +87,9 @@ export function normalizeCommandInput(value: string): CommandInput {
 
 export function looksLikeInlineCommand(value: string): boolean {
   if (!value) {
+    return false;
+  }
+  if (looksLikeWindowsFilesystemPath(value)) {
     return false;
   }
   if (!/\s/.test(value)) {

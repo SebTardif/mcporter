@@ -71,7 +71,7 @@ export function resolveEphemeralServer(spec: EphemeralServerSpec): EphemeralServ
   }
 
   const stdioCommand = spec.stdioCommand as string;
-  const parts = splitCommandLine(stdioCommand);
+  const parts = looksLikeWindowsFilesystemPath(stdioCommand) ? [stdioCommand] : splitCommandLine(stdioCommand);
   if (parts.length === 0) {
     throw new Error('--stdio requires a non-empty command.');
   }
@@ -204,6 +204,10 @@ function normalizeEphemeralName(value: string): string {
     throw new Error('Ad-hoc server name must contain at least one letter or digit.');
   }
   return name;
+}
+
+export function looksLikeWindowsFilesystemPath(value: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
 }
 
 export function splitCommandLine(input: string): string[] {

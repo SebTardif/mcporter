@@ -34,6 +34,13 @@ describe('generated CLI command naming', () => {
     expect(inferNameFromCommand(input)).toBe('server-with-spaces');
   });
 
+  it('keeps Windows paths with spaces as a single command', () => {
+    const spaced = String.raw`C:\Program Files\app\server.exe`;
+    expect(looksLikeInlineCommand(spaced)).toBe(false);
+    expect(normalizeCommandInput(spaced)).toEqual({ command: spaced });
+    expect(inferNameFromCommand(spaced)).toBe('server');
+  });
+
   it('distinguishes bare executables and malformed command lines from inline commands', () => {
     expect(looksLikeInlineCommand('node')).toBe(false);
     expect(looksLikeInlineCommand('')).toBe(false);
