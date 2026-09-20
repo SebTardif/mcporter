@@ -71,7 +71,7 @@ export function resolveEphemeralServer(spec: EphemeralServerSpec): EphemeralServ
   }
 
   const stdioCommand = spec.stdioCommand as string;
-  const parts = looksLikeWindowsFilesystemPath(stdioCommand) ? [stdioCommand] : splitCommandLine(stdioCommand);
+  const parts = tokenizeWindowsCommandLine(stdioCommand);
   if (parts.length === 0) {
     throw new Error('--stdio requires a non-empty command.');
   }
@@ -208,6 +208,41 @@ function normalizeEphemeralName(value: string): string {
 
 export function looksLikeWindowsFilesystemPath(value: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
+}
+
+const WINDOWS_EXECUTABLE_EXT = /\.(?:exe|cmd|bat|com|ps1)$/i;
+const WINDOWS_SCRIPT_ARG = /\.(?:js|mjs|cjs|ts|mts|cts)$/i;
+
+export function tokenizeWindowsCommandLine(input: string): string[] {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (/["']/.test(trimmed) || !looksLikeWindowsFilesystemPath(trimmed)) {
+    return splitCommandLine(trimmed);
+  }
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return parts;
+  }
+  const first = parts[0] ?? '';
+  if (WINDOWS_EXECUTABLE_EXT.test(first)) {
+    return parts;
+  }
+  let executable = first;
+  let index = 1;
+  while (index < parts.length) {
+    const next = parts[index] ?? '';
+    if (next.startsWith('-') || WINDOWS_SCRIPT_ARG.test(next)) {
+      break;
+    }
+    executable = `${executable} ${next}`;
+    index += 1;
+    if (WINDOWS_EXECUTABLE_EXT.test(executable)) {
+      break;
+    }
+  }
+  return [executable, ...parts.slice(index)];
 }
 
 export function splitCommandLine(input: string): string[] {

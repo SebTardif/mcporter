@@ -1,4 +1,4 @@
-import { looksLikeWindowsFilesystemPath, splitCommandLine } from '../adhoc-server.js';
+import { looksLikeWindowsFilesystemPath, tokenizeWindowsCommandLine } from '../adhoc-server.js';
 import { toAsciiSlug } from '../ascii-slug.js';
 import { normalizeHttpUrlCandidate } from '../http-utils.js';
 import type { CommandInput } from './types.js';
@@ -35,7 +35,20 @@ export function inferNameFromCommand(command: CommandInput): string | undefined 
     }
     const trimmed = command.trim();
     if (looksLikeWindowsFilesystemPath(trimmed)) {
-      return slugify(stripExtension(basename(trimmed)));
+      const parts = tokenizeWindowsCommandLine(trimmed);
+      if (parts.length > 1) {
+        try {
+          const parsed = parseInlineCommand(trimmed);
+          const derived = inferNameFromCommand(parsed);
+          if (derived) {
+            return derived;
+          }
+        } catch {
+          // fall through to the executable basename
+        }
+      }
+      const executable = parts[0] ?? trimmed;
+      return slugify(stripExtension(basename(executable)));
     }
     if (looksLikeInlineCommand(trimmed)) {
       try {
@@ -77,7 +90,11 @@ export function normalizeCommandInput(value: string): CommandInput {
     return httpCandidate;
   }
   if (looksLikeWindowsFilesystemPath(value)) {
-    return { command: value };
+    const parts = tokenizeWindowsCommandLine(value);
+    if (parts.length > 1) {
+      return parseInlineCommand(value);
+    }
+    return { command: parts[0] ?? value };
   }
   if (looksLikeInlineCommand(value)) {
     return parseInlineCommand(value);
@@ -89,14 +106,14 @@ export function looksLikeInlineCommand(value: string): boolean {
   if (!value) {
     return false;
   }
-  if (looksLikeWindowsFilesystemPath(value)) {
-    return false;
-  }
   if (!/\s/.test(value)) {
     return false;
   }
   try {
-    const parts = splitCommandLine(value.trim());
+    const parts = tokenizeWindowsCommandLine(value.trim());
+    if (looksLikeWindowsFilesystemPath(value.trim())) {
+      return parts.length > 1;
+    }
     return parts.length > 0;
   } catch {
     return false;
@@ -104,7 +121,7 @@ export function looksLikeInlineCommand(value: string): boolean {
 }
 
 export function parseInlineCommand(value: string): CommandInput {
-  const parts = splitCommandLine(value.trim());
+  const parts = tokenizeWindowsCommandLine(value.trim());
   if (parts.length === 0) {
     throw new Error('--command requires a non-empty value.');
   }

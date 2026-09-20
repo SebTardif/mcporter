@@ -2,7 +2,7 @@
 
 ## [0.13.14] - Unreleased
 
-- Treat Windows filesystem paths with spaces as a single `--command` / executable instead of splitting `C:\Program Files\...` into argv tokens.
+- Treat Windows filesystem paths with spaces as a single `--command` / executable instead of splitting `C:\Program Files\...` into argv tokens, while still keeping arguments after the executable (`C:/tools/node.exe server.js`).
 - Honor cancellation during HTTP/1.1 request preparation so an already-cancelled MCP request is never sent after body serialization.
 - Report asynchronous recording failures without unhandled rejections and always close the underlying MCP transport when recording writes fail.
 - Accept narrowly normalized loopback redirects from fresh OAuth registrations, including Fastmail's portless localhost response, while preserving the actual callback and stale-client safeguards. Thanks @mikegreiling for the report (#354).

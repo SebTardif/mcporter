@@ -55,6 +55,29 @@ describe('resolveEphemeralServer', () => {
     expect(definition.command.args).toEqual([]);
   });
 
+  it('keeps arguments after a Windows executable path', () => {
+    const { definition } = resolveEphemeralServer({
+      stdioCommand: 'C:/tools/node.exe server.js',
+    });
+    expect(definition.command.kind).toBe('stdio');
+    if (definition.command.kind !== 'stdio') {
+      throw new Error('expected stdio command');
+    }
+    expect(definition.command.command).toBe('C:/tools/node.exe');
+    expect(definition.command.args).toEqual(['server.js']);
+  });
+
+  it('keeps Program Files executable plus flags', () => {
+    const spaced = String.raw`C:\Program Files\app\server.exe --verbose`;
+    const { definition } = resolveEphemeralServer({ stdioCommand: spaced });
+    expect(definition.command.kind).toBe('stdio');
+    if (definition.command.kind !== 'stdio') {
+      throw new Error('expected stdio command');
+    }
+    expect(definition.command.command).toBe(String.raw`C:\Program Files\app\server.exe`);
+    expect(definition.command.args).toEqual(['--verbose']);
+  });
+
   it('infers package names instead of wrapper flags for npx workflows', () => {
     const { definition } = resolveEphemeralServer({
       stdioCommand: 'npx -y xcodebuildmcp',

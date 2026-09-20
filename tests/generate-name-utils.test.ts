@@ -41,6 +41,20 @@ describe('generated CLI command naming', () => {
     expect(inferNameFromCommand(spaced)).toBe('server');
   });
 
+  it('parses Windows executable-plus-arguments as an inline command', () => {
+    const input = 'C:/tools/node.exe server.js';
+    expect(looksLikeInlineCommand(input)).toBe(true);
+    expect(parseInlineCommand(input)).toEqual({
+      command: 'C:/tools/node.exe',
+      args: ['server.js'],
+    });
+    expect(normalizeCommandInput(input)).toEqual({
+      command: 'C:/tools/node.exe',
+      args: ['server.js'],
+    });
+    expect(inferNameFromCommand(input)).toBe('server');
+  });
+
   it('distinguishes bare executables and malformed command lines from inline commands', () => {
     expect(looksLikeInlineCommand('node')).toBe(false);
     expect(looksLikeInlineCommand('')).toBe(false);
