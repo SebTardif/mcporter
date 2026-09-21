@@ -55,6 +55,15 @@ describe('generated CLI command naming', () => {
     expect(inferNameFromCommand(input)).toBe('server');
   });
 
+  it('parses extensionless Windows executables with a script argument', () => {
+    const input = 'C:/tools/python server.py';
+    expect(parseInlineCommand(input)).toEqual({
+      command: 'C:/tools/python',
+      args: ['server.py'],
+    });
+    expect(inferNameFromCommand(input)).toBe('server-py');
+  });
+
   it('distinguishes bare executables and malformed command lines from inline commands', () => {
     expect(looksLikeInlineCommand('node')).toBe(false);
     expect(looksLikeInlineCommand('')).toBe(false);

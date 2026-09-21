@@ -227,7 +227,8 @@ export function tokenizeWindowsCommandLine(input: string): string[] {
   }
   const first = parts[0] ?? '';
   if (WINDOWS_EXECUTABLE_EXT.test(first)) {
-    return parts;
+    const rest = trimmed.slice(first.length).trim();
+    return rest ? [first, ...splitCommandLine(rest)] : [first];
   }
   let executable = first;
   let index = 1;
@@ -242,7 +243,11 @@ export function tokenizeWindowsCommandLine(input: string): string[] {
       break;
     }
   }
-  return [executable, ...parts.slice(index)];
+  if (!WINDOWS_EXECUTABLE_EXT.test(executable)) {
+    return splitCommandLine(trimmed);
+  }
+  const rest = parts.slice(index).join(' ');
+  return rest ? [executable, ...splitCommandLine(rest)] : [executable];
 }
 
 export function splitCommandLine(input: string): string[] {

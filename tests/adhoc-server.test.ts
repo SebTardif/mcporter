@@ -67,6 +67,30 @@ describe('resolveEphemeralServer', () => {
     expect(definition.command.args).toEqual(['server.js']);
   });
 
+  it('keeps arguments after an extensionless Windows executable', () => {
+    const { definition } = resolveEphemeralServer({
+      stdioCommand: 'C:/tools/python server.py',
+    });
+    expect(definition.command.kind).toBe('stdio');
+    if (definition.command.kind !== 'stdio') {
+      throw new Error('expected stdio command');
+    }
+    expect(definition.command.command).toBe('C:/tools/python');
+    expect(definition.command.args).toEqual(['server.py']);
+  });
+
+  it('keeps escaped whitespace after a Windows executable', () => {
+    const { definition } = resolveEphemeralServer({
+      stdioCommand: String.raw`C:/tools/node.exe server\ file.js`,
+    });
+    expect(definition.command.kind).toBe('stdio');
+    if (definition.command.kind !== 'stdio') {
+      throw new Error('expected stdio command');
+    }
+    expect(definition.command.command).toBe('C:/tools/node.exe');
+    expect(definition.command.args).toEqual(['server file.js']);
+  });
+
   it('keeps Program Files executable plus flags', () => {
     const spaced = String.raw`C:\Program Files\app\server.exe --verbose`;
     const { definition } = resolveEphemeralServer({ stdioCommand: spaced });
