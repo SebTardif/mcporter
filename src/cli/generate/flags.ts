@@ -14,7 +14,7 @@ export interface GenerateFlags {
   bundle?: boolean | string;
   compile?: boolean | string;
   runtime?: 'node' | 'bun';
-  timeout: number;
+  timeout?: number;
   minify?: boolean;
   from?: string;
   dryRun: boolean;
@@ -33,7 +33,7 @@ export function parseGenerateFlags(args: string[]): GenerateFlags {
   let bundle: boolean | string | undefined;
   let compile: boolean | string | undefined;
   const runtime: 'node' | 'bun' | undefined = common.runtime;
-  const timeout = common.timeout ?? 30_000;
+  const timeout = common.timeout;
   let minify: boolean | undefined;
   let from: string | undefined;
   let dryRun = false;

@@ -67,7 +67,7 @@ export function resolveGenerateRequestFromArtifact(
     runtime?: GenerateCliOptions['runtime'];
     bundler?: GenerateCliOptions['bundler'];
     bundle?: GenerateCliOptions['bundle'];
-    timeout: number;
+    timeout?: number;
     compile?: GenerateCliOptions['compile'];
     minify?: boolean;
     includeTools?: string[];
