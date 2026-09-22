@@ -154,13 +154,31 @@ describe('resolveEphemeralServer', () => {
       let config = JSON.parse(await fs.readFile(configPath, 'utf8')) as Record<string, unknown>;
       expect(config).toMatchObject({ mcpServers: { demo: { baseUrl: 'https://example.com/mcp' } } });
 
-      await fs.writeFile(configPath, JSON.stringify({ imports: ['one'], mcpServers: 'invalid' }));
+      await fs.writeFile(configPath, JSON.stringify({ imports: ['one'], mcpServers: {} }));
       await persistEphemeralServer(resolution, configPath);
       config = JSON.parse(await fs.readFile(configPath, 'utf8')) as Record<string, unknown>;
       expect(config).toMatchObject({ imports: ['one'], mcpServers: { demo: resolution.persistedEntry } });
 
       await fs.writeFile(configPath, '{ invalid json');
       await expect(persistEphemeralServer(resolution, configPath)).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.each(
+    [null, [], 'text', 42, false, { mcpServers: null }, { mcpServers: [] }, { mcpServers: 'invalid' }].map((value) => ({
+      value,
+    }))
+  )('rejects invalid persistence containers without modifying them: $value', async ({ value }) => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-invalid-persist-'));
+    const configPath = path.join(dir, 'mcporter.json');
+    const resolution = resolveEphemeralServer({ name: 'demo', httpUrl: 'https://example.com/mcp' });
+    const original = `${JSON.stringify(value)}\n`;
+    try {
+      await fs.writeFile(configPath, original);
+      await expect(persistEphemeralServer(resolution, configPath)).rejects.toThrow('must be a JSON object');
+      expect(await fs.readFile(configPath, 'utf8')).toBe(original);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

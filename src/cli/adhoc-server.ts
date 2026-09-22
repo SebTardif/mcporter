@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { CommandSpec, ServerDefinition } from '../config.js';
 import { __configInternals } from '../config.js';
+import { isRecord } from '../config/imports/shared.js';
 import { expandHome } from '../env.js';
 import { withFileLock, writeTextFileAtomic } from '../fs-json.js';
 import { canonicalKeepAliveName, resolveLifecycle } from '../lifecycle.js';
@@ -114,7 +115,9 @@ export async function persistEphemeralServer(resolution: EphemeralServerResoluti
     let existing: Record<string, unknown>;
     try {
       const buffer = await fs.readFile(resolvedPath, 'utf8');
-      existing = JSON.parse(buffer) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(buffer);
+      if (!isRecord(parsed)) throw new Error('Persistence destination must be a JSON object.');
+      existing = parsed;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error;
@@ -122,10 +125,9 @@ export async function persistEphemeralServer(resolution: EphemeralServerResoluti
       existing = { mcpServers: {} };
     }
 
-    if (typeof existing.mcpServers !== 'object' || existing.mcpServers === null) {
-      existing.mcpServers = {};
-    }
-    const servers = existing.mcpServers as Record<string, unknown>;
+    const servers = existing.mcpServers === undefined ? {} : existing.mcpServers;
+    if (!isRecord(servers)) throw new Error('Persistence destination mcpServers must be a JSON object.');
+    existing.mcpServers = servers;
     servers[resolution.name] = resolution.persistedEntry;
 
     const serialized = `${JSON.stringify(existing, null, 2)}\n`;

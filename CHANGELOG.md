@@ -2,6 +2,7 @@
 
 ## [0.13.14] - Unreleased
 
+- Reject non-object `--persist` destinations and invalid `mcpServers` containers with clear errors, preserving the existing file instead of silently losing the new server or replacing invalid data. Thanks @SebTardif (#387).
 - Preserve the saved tool timeout when regenerating a CLI with `--from`, unless `--timeout` explicitly overrides it. Thanks @SebTardif (#384).
 - Bound `--tail-log` reads to the last MiB of regular files, reject special files without blocking even if the path changes during opening, and avoid padding short reads. Thanks @SebTardif (#388).
 - Materialize Chrome compatibility preloads in private, unique directories with exclusive file creation, preventing shared-temp symlink overwrites and cleaning up with the transport. Thanks @SebTardif (#386).
