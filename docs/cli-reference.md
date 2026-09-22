@@ -56,7 +56,7 @@ A quick reference for the primary `mcporter` subcommands. Each command inherits
   - `--no-coerce` – disable all flag-style/positional value coercion.
   - `key=@path` / `--key @path` – read a named UTF-8 string argument from a file; prefix with `@@` for a literal leading `@`.
   - Generic long tool flags are validated against the selected tool schema before dispatch.
-  - `--tail-log` – stream tail output when the tool returns log handles.
+  - `--tail-log` – print up to the last 20 lines from the final 1 MiB of a regular log file returned by the tool. Special files are refused.
   - `--no-oauth` – never start an interactive OAuth flow; use cached
     tokens only while keeping eligible connections pooled.
 

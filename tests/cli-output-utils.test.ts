@@ -1,4 +1,6 @@
-import fs from 'node:fs/promises';
+import fs from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import fsPromises from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -265,10 +267,56 @@ describe('printCallOutput raw output', () => {
 });
 
 describe('tailLogIfRequested', () => {
+  it.runIf(process.platform !== 'win32')('does not block when a regular log is replaced by a FIFO', async () => {
+    const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-fifo-'));
+    const regular = path.join(dir, 'regular.log');
+    const fifo = path.join(dir, 'pipe.log');
+    try {
+      await fsPromises.writeFile(regular, 'regular file');
+      execFileSync('mkfifo', [fifo]);
+      const script = `
+import fs from 'node:fs';
+import { tailLogIfRequested } from ${JSON.stringify(new URL('../src/cli/output-utils.ts', import.meta.url).href)};
+const stat = fs.statSync(process.env.MCPORTER_TEST_REGULAR);
+const original = fs.statSync;
+fs.statSync = (...args) => args[0] === process.env.MCPORTER_TEST_FIFO ? stat : original(...args);
+tailLogIfRequested({ logFile: process.env.MCPORTER_TEST_FIFO }, true);
+`;
+      const child = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
+        timeout: 5000,
+        killSignal: 'SIGKILL',
+        encoding: 'utf8',
+        env: { ...process.env, MCPORTER_TEST_REGULAR: regular, MCPORTER_TEST_FIFO: fifo },
+      });
+      expect(child.error).toBeUndefined();
+      expect(child.status, child.stderr).toBe(0);
+      expect(child.stderr).toContain('Refusing to tail non-file log path');
+    } finally {
+      await fsPromises.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reads only the final MiB of a large log', async () => {
+    const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-bounded-'));
+    const logPath = path.join(dir, 'large.log');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const read = vi.spyOn(fs, 'readSync');
+    try {
+      await fsPromises.writeFile(logPath, `${'x'.repeat(2 * 1024 * 1024)}\nlast line\n`);
+      tailLogIfRequested({ logFile: logPath }, true);
+      expect(log).toHaveBeenCalledWith('last line');
+      expect(read).toHaveBeenCalledOnce();
+      expect(read.mock.calls[0]?.[1].byteLength).toBe(1024 * 1024);
+    } finally {
+      vi.restoreAllMocks();
+      await fsPromises.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('prints only the final twenty lines from recognized absolute log paths', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-log-'));
+    const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-log-'));
     const logPath = path.join(dir, 'server.log');
-    await fs.writeFile(logPath, Array.from({ length: 25 }, (_, index) => `line-${index + 1}`).join('\n'));
+    await fsPromises.writeFile(logPath, Array.from({ length: 25 }, (_, index) => `line-${index + 1}`).join('\n'));
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
       tailLogIfRequested({ logFile: logPath }, true);
@@ -278,12 +326,37 @@ describe('tailLogIfRequested', () => {
       expect(log).toHaveBeenCalledWith('line-25');
     } finally {
       log.mockRestore();
-      await fs.rm(dir, { recursive: true, force: true });
+      await fsPromises.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('decodes only the bytes actually read when the log shrinks after stat', async () => {
+    const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-short-'));
+    const logPath = path.join(dir, 'server.log');
+    await fsPromises.writeFile(logPath, 'abc\n');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const readSync = vi.spyOn(fs, 'readSync').mockImplementation(((
+      _fd: number,
+      buffer: NodeJS.ArrayBufferView,
+      offset?: number
+    ) => {
+      const target = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+      return Buffer.from('xyz').copy(target, offset ?? 0);
+    }) as typeof fs.readSync);
+    try {
+      tailLogIfRequested({ logFile: logPath }, true);
+      const printed = log.mock.calls.map((call) => String(call[0]));
+      expect(printed).toContain('xyz');
+      expect(printed.some((line) => line.includes('\0'))).toBe(false);
+    } finally {
+      log.mockRestore();
+      readSync.mockRestore();
+      await fsPromises.rm(dir, { recursive: true, force: true });
     }
   });
 
   it('ignores disabled and non-object inputs and warns for unsafe, missing, or unreadable paths', async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-errors-'));
+    const dir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'mcporter-tail-errors-'));
     const missing = path.join(dir, 'missing.log');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
@@ -292,10 +365,10 @@ describe('tailLogIfRequested', () => {
       tailLogIfRequested({ logPath: 'relative.log', logfile: missing, logFile: dir }, true);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Refusing to tail non-absolute log path'));
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Log path not found'));
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Failed to read log file'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Refusing to tail non-file log path'));
     } finally {
       warn.mockRestore();
-      await fs.rm(dir, { recursive: true, force: true });
+      await fsPromises.rm(dir, { recursive: true, force: true });
     }
   });
 });
