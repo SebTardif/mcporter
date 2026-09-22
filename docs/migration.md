@@ -24,7 +24,7 @@ npm install mcporter
 - Replace `pnpm mcporter:call <server>.<tool> key=value` with `npx mcporter call <server>.<tool> key=value`.
 - Add `--config <path>` if your configuration is not under `./config/mcporter.json`.
 - Optional: set `"imports"` inside `mcporter.json` (for example `[]` to disable auto-imports or `["cursor", "codex"]` to customize the order).
-- Append `--tail-log` to print the last 20 lines of a log file returned by the tool.
+- Append `--tail-log` to print up to the last 20 lines from the final 1 MiB of a regular log file returned by the tool.
 
 ## 3. OAuth Tokens
 

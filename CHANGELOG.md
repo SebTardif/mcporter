@@ -2,6 +2,7 @@
 
 ## [0.13.14] - Unreleased
 
+- Bound `--tail-log` reads to the last MiB of regular files, reject special files without blocking even if the path changes during opening, and avoid padding short reads. Thanks @SebTardif (#388).
 - Materialize Chrome compatibility preloads in private, unique directories with exclusive file creation, preventing shared-temp symlink overwrites and cleaning up with the transport. Thanks @SebTardif (#386).
 - Retry transient Windows file-lock release failures without replaying the protected operation or deleting a successor's lock, while keeping permanent failures visible.
 - Discover Claude Desktop's actual config filename and Cursor's default Linux user config, and honor redirected Windows `APPDATA` locations for both clients. Thanks @SebTardif (#382).
