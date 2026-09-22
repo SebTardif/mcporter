@@ -70,6 +70,7 @@ Browser launch is best-effort: if the system browser helper cannot start, mcport
 
 ## Safety Nets
 
+- Existing persistence files must contain a JSON object, with an object-valued `mcpServers` field when present. Invalid containers are rejected without changing the file.
 - Non-HTTPS endpoints require `--allow-http`.
 - For stdio commands we print a confirmation snippet the first time we see a new command unless `--yes` is present.
 - Missing transports or malformed combinations throw descriptive errors, pointing to `docs/adhoc.md` for guidance.
