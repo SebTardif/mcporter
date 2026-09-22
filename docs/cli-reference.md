@@ -129,8 +129,8 @@ A quick reference for the primary `mcporter` subcommands. Each command inherits
     methods return `Promise<CallResult>`, with doc comments and optional
     summaries.
   - `--mode client --out <file.ts>` – emit both the interface (`<file>.d.ts`)
-    and a factory that wraps `createServerProxy`, returning objects whose
-    methods resolve to `CallResult`.
+    and a factory that wraps `createServerProxy`; each method takes one
+    arguments object and resolves to `CallResult`.
 - Other flags:
   - `--include-optional` (alias `--all-parameters`) – show every optional field.
   - `--types-out <file>` – override where the `.d.ts` sits when using client

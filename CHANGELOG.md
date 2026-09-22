@@ -2,6 +2,8 @@
 
 ## [0.13.14] - Unreleased
 
+- Keep server-controlled descriptions and metadata inside generated comments, preventing comment terminators or line breaks from becoming executable client code.
+- Emit strict-compatible object-argument clients that forward every tool argument and return `CallResult`, including tools with reserved property names or named output schemas; preserve proxy defaults and validation. Thanks @nathanvale (#378, #379).
 - Avoid repeated warnings for already-ignored `uint32` and `uint64` output-schema annotations while preserving schema metadata, dialect handling, and validation. Thanks @0xCUB3 (#377).
 - Reject non-object `--persist` destinations and invalid `mcpServers` containers with clear errors, preserving the existing file instead of silently losing the new server or replacing invalid data. Thanks @SebTardif (#387).
 - Preserve the saved tool timeout when regenerating a CLI with `--from`, unless `--timeout` explicitly overrides it. Thanks @SebTardif (#384).

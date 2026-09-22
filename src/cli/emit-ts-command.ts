@@ -44,7 +44,7 @@ export async function handleEmitTs(runtime: Runtime, args: string[]): Promise<vo
   const interfaceName = buildInterfaceName(options.server);
 
   if (options.mode === 'types') {
-    const source = renderTypesModule({ interfaceName, docs: docEntries, metadata });
+    const source = renderTypesModule({ interfaceName, docs: docEntries, metadata, signatureStyle: 'positional' });
     await writeFile(options.outPath, source);
     if (options.format === 'json') {
       console.log(
@@ -65,14 +65,8 @@ export async function handleEmitTs(runtime: Runtime, args: string[]): Promise<vo
   }
 
   const typesOutPath = options.typesOutPath ?? deriveTypesOutPath(options.outPath);
-  const relativeImportPath = computeImportPath(options.outPath, typesOutPath);
-  const typesSource = renderTypesModule({ interfaceName, docs: docEntries, metadata });
-  const clientSource = renderClientModule({
-    interfaceName,
-    docs: docEntries,
-    metadata,
-    typesImportPath: relativeImportPath,
-  });
+  const typesSource = renderTypesModule({ interfaceName, docs: docEntries, metadata, signatureStyle: 'object' });
+  const clientSource = renderClientModule({ interfaceName, docs: docEntries, metadata });
   await writeFile(typesOutPath, typesSource);
   await writeFile(options.outPath, clientSource);
   if (options.format === 'json') {
@@ -230,6 +224,7 @@ function buildDocEntries(
     return {
       toolName: entry.tool.name,
       methodName: entry.methodName,
+      inputSchema: entry.tool.inputSchema,
       doc,
     };
   });
@@ -256,20 +251,9 @@ async function writeFile(targetPath: string, contents: string): Promise<void> {
   await fs.writeFile(targetPath, `${contents}\n`, 'utf8');
 }
 
-function computeImportPath(fromPath: string, typesPath: string): string {
-  const fromDir = path.dirname(fromPath);
-  const relative = path.relative(fromDir, typesPath).replace(/\\/g, '/');
-  const withoutExt = relative.endsWith('.d.ts') ? relative.slice(0, -5) : relative.replace(/\.[^.]+$/, '');
-  if (withoutExt.startsWith('.')) {
-    return withoutExt;
-  }
-  return `./${withoutExt}`;
-}
-
 export const __test = {
   parseEmitTsArgs,
   buildInterfaceName,
   deriveTypesOutPath,
-  computeImportPath,
   buildDocEntries,
 };

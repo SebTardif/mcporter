@@ -138,6 +138,27 @@ function formatInlineParameter(option: GeneratedOption, colorize: boolean): stri
   return `${option.property}${optionalSuffix}: ${typeAnnotation}`;
 }
 
+const PROPERTY_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+// Renders the options as one object type literal for emitted TypeScript, e.g.
+// `{ pageId: string; uid?: number }`. Wire names are kept verbatim: a reserved word such as
+// `function` is a valid object-type property, and anything that is not an identifier is quoted.
+export function formatParameterObjectType(options: GeneratedOption[]): string | undefined {
+  if (options.length === 0) {
+    return undefined;
+  }
+  const members = options.map((option) => {
+    const optionalSuffix = option.required ? '' : '?';
+    return `${formatPropertyKey(option.property)}${optionalSuffix}: ${formatTypeAnnotation(option, false)}`;
+  });
+  return `{ ${members.join('; ')} }`;
+}
+
+function formatPropertyKey(property: string): string {
+  if (property === '__proto__') return '["__proto__"]';
+  return PROPERTY_NAME_PATTERN.test(property) ? property : JSON.stringify(property);
+}
+
 function quoteShellExpression(expression: string): string {
   if (!expression.includes("'")) {
     return `'${expression}'`;

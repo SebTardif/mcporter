@@ -43,9 +43,7 @@ describe('emit-ts argument validation', () => {
     // These helpers join with the platform separator, so build the fixture and the
     // expectation the same way instead of hardcoding POSIX paths.
     const clientTs = path.join(path.sep, 'tmp', 'client.ts');
-    const typesTs = path.join(path.sep, 'tmp', 'types.ts');
     expect(emitInternals.deriveTypesOutPath(clientTs)).toBe(path.join(path.sep, 'tmp', 'client.d.ts'));
-    expect(emitInternals.computeImportPath(clientTs, typesTs)).toBe('./types');
   });
 });
 
