@@ -1,9 +1,11 @@
 import fs from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderChromeDevtoolsAutoConnectPatchSource } from './chrome-devtools-auto-connect-patch.js';
 import { resolveChromeDevtoolsAutoConnectCommand } from './chrome-devtools-command.js';
+import { ensureWindowsPrivateDirectory } from './chrome-devtools-relay-handoff.js';
 
 const FALLBACK_PATCH_FILENAME = 'mcporter-chrome-devtools-auto-connect-patch.js';
 
@@ -11,6 +13,12 @@ export interface ChromeDevtoolsCompatResult {
   readonly env: Record<string, string>;
   readonly applied: boolean;
   readonly patchPath?: string;
+  readonly close?: () => void;
+}
+
+interface CompatPatch {
+  readonly patchPath: string;
+  readonly close?: () => void;
 }
 
 export function applyChromeDevtoolsCompat(
@@ -21,14 +29,14 @@ export function applyChromeDevtoolsCompat(
   if (!shouldApplyChromeDevtoolsCompat(command, args, env)) {
     return { env, applied: false };
   }
-  const patchPath = resolveChromeDevtoolsCompatPatchPath();
-  if (!patchPath) {
+  const patch = resolveChromeDevtoolsCompatPatch();
+  if (!patch) {
     return { env, applied: false };
   }
-  const importFlag = `--import=${pathToFileURL(patchPath).href}`;
+  const importFlag = `--import=${pathToFileURL(patch.patchPath).href}`;
   const existingOptions = env.NODE_OPTIONS?.trim();
   if (existingOptions?.includes(importFlag)) {
-    return { env, applied: true, patchPath };
+    return { env, applied: true, ...patch };
   }
   return {
     env: {
@@ -36,7 +44,7 @@ export function applyChromeDevtoolsCompat(
       NODE_OPTIONS: existingOptions ? `${existingOptions} ${importFlag}` : importFlag,
     },
     applied: true,
-    patchPath,
+    ...patch,
   };
 }
 
@@ -51,13 +59,13 @@ export function shouldApplyChromeDevtoolsCompat(
   return resolveChromeDevtoolsAutoConnectCommand(command, args).enabled;
 }
 
-export function resolveChromeDevtoolsCompatPatchPath(
+export function resolveChromeDevtoolsCompatPatch(
   candidates = defaultChromeDevtoolsPatchCandidates(),
   fallbackDir = os.tmpdir()
-): string | undefined {
+): CompatPatch | undefined {
   const existing = candidates.find((candidate) => fs.existsSync(candidate));
   if (existing) {
-    return existing;
+    return { patchPath: existing };
   }
   return writeFallbackPatch(fallbackDir);
 }
@@ -70,12 +78,22 @@ function defaultChromeDevtoolsPatchCandidates(): string[] {
   ];
 }
 
-function writeFallbackPatch(fallbackDir: string): string | undefined {
-  const patchPath = path.join(fallbackDir, FALLBACK_PATCH_FILENAME);
+function writeFallbackPatch(fallbackDir: string): CompatPatch | undefined {
+  let directory: string | undefined;
   try {
-    fs.writeFileSync(patchPath, renderChromeDevtoolsAutoConnectPatchSource(), { mode: 0o600 });
-    return patchPath;
+    if (process.platform === 'win32') {
+      const candidate = path.join(fallbackDir, `mcporter-chrome-devtools-${randomBytes(16).toString('hex')}`);
+      ensureWindowsPrivateDirectory(candidate);
+      directory = candidate;
+    } else {
+      directory = fs.mkdtempSync(path.join(fallbackDir, 'mcporter-chrome-devtools-'));
+    }
+    const patchPath = path.join(directory, FALLBACK_PATCH_FILENAME);
+    fs.writeFileSync(patchPath, renderChromeDevtoolsAutoConnectPatchSource(), { mode: 0o600, flag: 'wx' });
+    const ownedDirectory = directory;
+    return { patchPath, close: () => fs.rmSync(ownedDirectory, { recursive: true, force: true }) };
   } catch {
+    if (directory) fs.rmSync(directory, { recursive: true, force: true });
     return undefined;
   }
 }

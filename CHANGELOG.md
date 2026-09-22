@@ -2,6 +2,7 @@
 
 ## [0.13.14] - Unreleased
 
+- Materialize Chrome compatibility preloads in private, unique directories with exclusive file creation, preventing shared-temp symlink overwrites and cleaning up with the transport. Thanks @SebTardif (#386).
 - Retry transient Windows file-lock release failures without replaying the protected operation or deleting a successor's lock, while keeping permanent failures visible.
 - Discover Claude Desktop's actual config filename and Cursor's default Linux user config, and honor redirected Windows `APPDATA` locations for both clients. Thanks @SebTardif (#382).
 - Verify private Windows daemon and Chrome handoff directories without requiring administrator elevation, while preserving owner and access restrictions. Thanks @yegetables for the report (#380).

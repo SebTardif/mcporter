@@ -1,21 +1,23 @@
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   patchChromeDevtoolsMcp,
   renderChromeDevtoolsAutoConnectPatchSource,
 } from '../src/chrome-devtools-auto-connect-patch.js';
 import {
   applyChromeDevtoolsCompat,
-  resolveChromeDevtoolsCompatPatchPath,
+  resolveChromeDevtoolsCompatPatch,
   shouldApplyChromeDevtoolsCompat,
 } from '../src/chrome-devtools-compat.js';
 
 describe('chrome-devtools compatibility', () => {
   afterEach(() => {
     delete process.env.MCPORTER_DISABLE_CHROME_DEVTOOLS_COMPAT;
+    vi.restoreAllMocks();
   });
 
   it('enables the patch for autoConnect chrome-devtools commands', () => {
@@ -78,11 +80,47 @@ describe('chrome-devtools compatibility', () => {
   it('materializes a JavaScript fallback patch when build output is missing', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-cdpmcp-fallback-'));
 
-    const patchPath = resolveChromeDevtoolsCompatPatchPath([], tmp);
+    const patch = resolveChromeDevtoolsCompatPatch([], tmp);
+    const patchPath = patch?.patchPath;
 
-    expect(patchPath).toBe(path.join(tmp, 'mcporter-chrome-devtools-auto-connect-patch.js'));
+    expect(patchPath).toMatch(/mcporter-chrome-devtools-.*[/\\]mcporter-chrome-devtools-auto-connect-patch\.js$/);
+    expect(path.dirname(patchPath!)).not.toBe(tmp);
     await expect(fs.readFile(patchPath!, 'utf8')).resolves.toBe(renderChromeDevtoolsAutoConnectPatchSource());
     await expect(import(`${pathToFileURL(patchPath!).href}?test=${Date.now()}`)).resolves.toBeDefined();
+    patch?.close?.();
+    await expect(fs.stat(path.dirname(patchPath!))).rejects.toMatchObject({ code: 'ENOENT' });
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it.runIf(process.platform !== 'win32')('never overwrites a pre-created fallback symlink', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-patch-symlink-'));
+    const victim = path.join(tmp, 'unrelated.txt');
+    try {
+      await fs.writeFile(victim, 'keep');
+      await fs.symlink(victim, path.join(tmp, 'mcporter-chrome-devtools-auto-connect-patch.js'));
+      const patch = resolveChromeDevtoolsCompatPatch([], tmp);
+      const patchPath = patch?.patchPath;
+      expect(patchPath).toBeDefined();
+      expect(await fs.readFile(victim, 'utf8')).toBe('keep');
+      expect((await fs.stat(path.dirname(patchPath!))).mode & 0o777).toBe(0o700);
+      expect((await fs.stat(patchPath!)).mode & 0o777).toBe(0o600);
+      patch?.close?.();
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('removes the private directory if writing the fallback fails', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'mcporter-patch-failure-'));
+    vi.spyOn(fsSync, 'writeFileSync').mockImplementation(() => {
+      throw new Error('synthetic write failure');
+    });
+    try {
+      expect(resolveChromeDevtoolsCompatPatch([], tmp)).toBeUndefined();
+      expect(await fs.readdir(tmp)).toEqual([]);
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
   });
 
   it('patches an npx .bin symlink target idempotently', async () => {

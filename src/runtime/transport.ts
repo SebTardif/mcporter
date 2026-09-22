@@ -10,7 +10,7 @@ import {
   type Transport,
   type VersionNegotiationMode,
 } from '@modelcontextprotocol/client';
-import { applyChromeDevtoolsCompat } from '../chrome-devtools-compat.js';
+import { applyChromeDevtoolsCompat, type ChromeDevtoolsCompatResult } from '../chrome-devtools-compat.js';
 import { createChromeDevtoolsRelayHandoff, type ChromeDevtoolsRelayHandoff } from '../chrome-devtools-relay-handoff.js';
 import {
   type ChromeDevtoolsRelayDecision,
@@ -186,6 +186,7 @@ async function createStdioClientContext(
   let processTree: Promise<TransportProcessTree> | undefined;
   const captureProcesses = () => (processTree ??= captureTransportProcessTree(rawTransport));
   let onProxyClosed: (() => void) | undefined;
+  let compat: ChromeDevtoolsCompatResult | undefined;
   try {
     if (activeProxy) {
       try {
@@ -209,7 +210,7 @@ async function createStdioClientContext(
       }
     }
     const transportEnv = handoff?.env ?? (mergedEnv as Record<string, string>);
-    const compat = applyChromeDevtoolsCompat(transportEnv, command, commandArgs);
+    compat = applyChromeDevtoolsCompat(transportEnv, command, commandArgs);
     if (compat.applied) {
       logger.info(`Injecting chrome-devtools-mcp --autoConnect compatibility patch from ${compat.patchPath}.`);
     }
@@ -222,17 +223,23 @@ async function createStdioClientContext(
       redactDiagnostics: isBrokerDefinition(definition),
       lifetime: activeProxy?.signal,
       prepareClose: activeProxy ? async () => void (await captureProcesses()) : undefined,
-      cleanup: activeProxy
-        ? async () => {
-            if (onProxyClosed) activeProxy?.signal.removeEventListener('abort', onProxyClosed);
-            await handoff?.close();
-            await activeProxy?.close();
-          }
-        : undefined,
+      cleanup:
+        activeProxy || compat.close
+          ? async () => {
+              try {
+                if (onProxyClosed) activeProxy?.signal.removeEventListener('abort', onProxyClosed);
+                await handoff?.close();
+                await activeProxy?.close();
+              } finally {
+                compat?.close?.();
+              }
+            }
+          : undefined,
     });
   } catch (error) {
     await handoff?.close().catch(() => {});
     await activeProxy?.close().catch(() => {});
+    compat?.close?.();
     throw error;
   }
   let transport: ClientContext['transport'];
