@@ -30,7 +30,8 @@ describe('generate-cli flag parsing', () => {
       'admin, debug',
     ];
 
-    expect(parseGenerateFlags(args)).toMatchObject({
+    const parsed = parseGenerateFlags(args);
+    expect(parsed).toMatchObject({
       server: 'linear',
       name: 'linear-cli',
       description: 'Issue tools',
@@ -43,8 +44,8 @@ describe('generate-cli flag parsing', () => {
       dryRun: true,
       includeTools: ['list', 'create', 'update'],
       excludeTools: ['admin', 'debug'],
-      timeout: 30_000,
     });
+    expect(parsed.timeout).toBeUndefined();
     expect(args).toEqual([]);
   });
 

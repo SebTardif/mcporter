@@ -68,7 +68,7 @@ export async function handleGenerateCli(args: string[], globalFlags: FlagMap): P
     runtime: parsed.runtime,
     bundler: parsed.bundler,
     bundle: parsed.bundle,
-    timeoutMs: parsed.timeout,
+    timeoutMs: parsed.timeout ?? 30_000,
     compile: parsed.compile,
     minify: parsed.minify ?? false,
     includeTools: parsed.includeTools,
