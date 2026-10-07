@@ -251,6 +251,25 @@ describe('emit-ts templates', () => {
     expect(parseDiagnosticsOf(types)).toEqual([]);
   });
 
+  it('keeps a schema format that closes a block comment inside the comment', () => {
+    const tool = {
+      name: 'note',
+      description: 'Note a time',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          when: { type: 'string', format: '*/' },
+        },
+        required: ['when'],
+      },
+    };
+    const docs = emitTsTestInternals.buildDocEntries('integration', [buildToolMetadata(tool)], true);
+    const client = renderClientModule({ interfaceName: 'IntegrationTools', docs, metadata: testMetadata });
+    expect(client).toContain('/* * / */');
+    expect(client).not.toContain('/* */ */');
+    expect(parseDiagnosticsOf(client)).toEqual([]);
+  });
+
   it('renders client module that wraps proxy calls', () => {
     const docs = emitTsTestInternals.buildDocEntries('integration', [buildToolMetadata(listCommentsTool)], true);
     const source = renderClientModule({ interfaceName: 'IntegrationTools', docs, metadata: testMetadata });
